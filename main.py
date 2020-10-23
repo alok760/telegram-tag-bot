@@ -2,6 +2,8 @@ import logging
 import os
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
 import toml
+import sqlite3
+
 
 config = toml.load("config.toml")
 group_data = toml.load("list.toml")
@@ -26,7 +28,7 @@ def tag(id, group_name=""):
 
     for x in id:
         temp += f"[\u200b](tg://user?id={x})"
-    
+
     return temp
 
 
@@ -35,26 +37,33 @@ def tag_admin(update, context):
     admins = context.bot.get_chat_administrators(group_id)
     admins_id = [x.user.id for x in admins]
     print(admins_id)
-    # add this to db 
+    # add this to db
     print("running tag")
-    tag_text = tag(admins_id, group_name="admins of OT")
+    tag_text = tag(admins_id, group_name="admins of this group")
     update.message.reply_markdown_v2(f'{tag_text}')
 
 def tag_a_group(update, context):
-    """Send a message when the command /help is issued."""
+    conn = sqlite3.connect('group.db')
+    c = conn.cursor()
+
     try:
         subgroup_name = update.message.text.split()[1]
     except:
         return update.message.reply_text("Also send a group name!")
 
-    # TODO alok
-    # if not somesqlmagic.search(subgroup_name):
-    #     return update.message.reply_text("The group doesn't exist!")
+    query = f"""select group_name from groups where group_name = "{subgroup_name}";"""
+    cursor = c.execute(query)
+    result = cursor.fetchall()
+    if len(result) > 0:
+        query = f"""select member_id from members where group_name = '{subgroup_name}';"""
+        mcursor = conn.execute(query)
+        res = mcursor.fetchall()
+    members_id = [i[0] for i in res]
 
-    # temp = ""
-    # for x in somesqlmagic.filter(subgroup_name):
-    #     temp += f"[\u200b](tg://user?id={x})"
-    # update.message.reply_markdown_v2(f'Tagged {group} {temp}')
+    tag_text = tag(members_id, group_name="meow group")
+    update.message.reply_markdown_v2(f'{tag_text}')
+
+
 
 
 def echo(update, context):
@@ -64,11 +73,12 @@ def echo(update, context):
 
 def main():
     updater = Updater(bot_token, use_context=True)
-    print("Working lol")
     dp = updater.dispatcher
+
     # dp.add_handler(CommandHandler("meow", meow_command))
-    dp.add_handler(CommandHandler("meow", tag_admin))
-    dp.add_handler(CommandHandler("echo", echo))
+    dp.add_handler(CommandHandler("admins", tag_admin))
+    dp.add_handler(CommandHandler("group", tag_a_group))
+
     updater.start_polling()
     updater.idle()
 
