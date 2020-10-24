@@ -19,6 +19,37 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 logger = logging.getLogger(__name__)
 bot_token = config["bot"]["key"]
 
+def make(update, context):
+
+    conn = sqlite3.connect('group.db')
+    c = conn.cursor()
+    try:
+        subgroup_name = update.message.text.split()[1]
+        subgroup_desciption = update.message.text.split()[2]
+    except:
+        return update.message.reply_text("Also send a group name!")
+
+    query = f"""insert into groups values('{subgroup_name}','{subgroup_desciption}')"""
+    cursor = c.execute(query)
+    conn.commit()
+    conn.close()
+    return update.message.reply_text("group created successfully!")
+    #breakpoint()
+
+
+def add(update, context):
+
+    try:
+        subgroup_name = update.message.text.split()[1]
+    except:
+        return update.message.reply_text("Also send a group name!")
+
+    group_name = "meow"
+    user_id = '271397625'
+
+
+    pass
+
 def tag(id, group_name=""):
     print("in tag")
     if group_name:
@@ -78,6 +109,7 @@ def main():
     # dp.add_handler(CommandHandler("meow", meow_command))
     dp.add_handler(CommandHandler("admins", tag_admin))
     dp.add_handler(CommandHandler("group", tag_a_group))
+    dp.add_handler(CommandHandler("make_group", make))
 
     updater.start_polling()
     updater.idle()
