@@ -1,6 +1,7 @@
 import logging
 import os
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
+import telegram
 import toml
 import sqlite3
 
@@ -38,17 +39,35 @@ def make(update, context):
 
 
 def add(update, context):
+    conn = sqlite3.connect('group.db')
+    c = conn.cursor()
 
     try:
         subgroup_name = update.message.text.split()[1]
     except:
         return update.message.reply_text("Also send a group name!")
 
-    group_name = "meow"
-    user_id = '271397625'
+    frm = update.message.reply_to_message.to_dict()
+    #breakpoint()
 
+    user_id = frm['from']['id']
+    name = frm['from']['first_name']
 
-    pass
+    query = f"""select group_name from groups where group_name = "{subgroup_name}";"""
+    cursor = c.execute(query)
+    result = cursor.fetchall()
+    if len(result) > 0:
+        query = f"""insert into members values('{subgroup_name}','{user_id}','{name}')"""
+        cursor = c.execute(query)
+        update.message.reply_text("successfully added")
+
+    else:
+        update.message.reply_text("Group name not found!")
+        conn.close()
+
+    print("scope came here as well")
+    conn.commit()
+    conn.close()
 
 def tag(id, group_name=""):
     print("in tag")
@@ -91,10 +110,8 @@ def tag_a_group(update, context):
         res = mcursor.fetchall()
     members_id = [i[0] for i in res]
 
-    tag_text = tag(members_id, group_name="meow group")
+    tag_text = tag(members_id, group_name=subgroup_name)
     update.message.reply_markdown_v2(f'{tag_text}')
-
-
 
 
 def echo(update, context):
@@ -110,6 +127,7 @@ def main():
     dp.add_handler(CommandHandler("admins", tag_admin))
     dp.add_handler(CommandHandler("group", tag_a_group))
     dp.add_handler(CommandHandler("make_group", make))
+    dp.add_handler(CommandHandler("add_member", add))
 
     updater.start_polling()
     updater.idle()
