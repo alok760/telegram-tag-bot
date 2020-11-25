@@ -8,10 +8,6 @@ import sqlite3
 
 config = toml.load("config.toml")
 group_data = toml.load("list.toml")
-# /add [string] [username] -> to add a user to a group
-# /make [string] -> to make a new group
-# /tag [string] -> to tag a group of people
-
 
 # Enable logging
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -20,23 +16,29 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 logger = logging.getLogger(__name__)
 bot_token = config["bot"]["key"]
 
-def make(update, context):
+def make_group(update, context):
 
     conn = sqlite3.connect('group.db')
     c = conn.cursor()
+    msplit = update.message.text.split(' ',2)
     try:
-        subgroup_name = update.message.text.split()[1]
-        subgroup_desciption = update.message.text.split()[2]
+        lmsplit = len(msplit)
+        if lmsplit==1:
+            return update.message.reply_text("group name not supplied")
+        elif lmsplit==2:
+            subgroup_name = msplit[1]
+            sql_str = f"""insert into groups(group_name) values('{subgroup_name}')"""
+        else:
+            subgroup_name = msplit[1]
+            subgroup_desciption = msplit[2]
+            sql_str = f"""insert into groups values('{subgroup_name}','{subgroup_desciption}')"""
+
+        cursor = c.execute(sql_str)
+        conn.commit()
+        conn.close()
+        return update.message.reply_text("group created successfully!")
     except:
-        return update.message.reply_text("Also send a group name!")
-
-    query = f"""insert into groups values('{subgroup_name}','{subgroup_desciption}')"""
-    cursor = c.execute(query)
-    conn.commit()
-    conn.close()
-    return update.message.reply_text("group created successfully!")
-    #breakpoint()
-
+        return update.message.reply_text("Group Creation Failed")
 
 def add(update, context):
     conn = sqlite3.connect('group.db')
@@ -48,7 +50,6 @@ def add(update, context):
         return update.message.reply_text("Also send a group name!")
 
     frm = update.message.reply_to_message.to_dict()
-    #breakpoint()
 
     user_id = frm['from']['id']
     name = frm['from']['first_name']
@@ -59,18 +60,17 @@ def add(update, context):
     if len(result) > 0:
         query = f"""insert into members values('{subgroup_name}','{user_id}','{name}')"""
         cursor = c.execute(query)
-        update.message.reply_text("successfully added")
+        update.message.reply_text(f"successfully added {name} to the group {subgroup_name}")
 
     else:
         update.message.reply_text("Group name not found!")
         conn.close()
 
-    print("scope came here as well")
     conn.commit()
     conn.close()
 
 def tag(id, group_name=""):
-    print("in tag")
+    #print("in tag")
     if group_name:
         temp = f"Tagged {group_name}\!"
     else:
@@ -82,17 +82,17 @@ def tag(id, group_name=""):
     return temp
 
 
-def tag_admin(update, context):
+def admins(update, context):
     group_id = update.message.chat.id
     admins = context.bot.get_chat_administrators(group_id)
     admins_id = [x.user.id for x in admins]
-    print(admins_id)
-    # add this to db
-    print("running tag")
+    # print(admins_id)
+    # # add this to db
+    # print("running tag")
     tag_text = tag(admins_id, group_name="admins of this group")
     update.message.reply_markdown_v2(f'{tag_text}')
 
-def tag_a_group(update, context):
+def tag_group(update, context):
     conn = sqlite3.connect('group.db')
     c = conn.cursor()
 
@@ -114,20 +114,24 @@ def tag_a_group(update, context):
     update.message.reply_markdown_v2(f'{tag_text}')
 
 
-def echo(update, context):
+def help(update, context):
     """Echo the user message."""
-    update.message.reply_text(update.message.text)
+
+    update.message.reply_markdown_v2("`/tag <group_name>` : tag group of people \n\n"\
+                            "`/admins` : tag all the admins \n\n"\
+                            "`/make <group_name> <description>` : Create a group and add some description if you want\n\n"\
+                            "`/add <group_name>`: reply this to any message of the person you want to add")
 
 
 def main():
     updater = Updater(bot_token, use_context=True)
     dp = updater.dispatcher
 
-    # dp.add_handler(CommandHandler("meow", meow_command))
-    dp.add_handler(CommandHandler("admins", tag_admin))
-    dp.add_handler(CommandHandler("group", tag_a_group))
-    dp.add_handler(CommandHandler("make_group", make))
-    dp.add_handler(CommandHandler("add_member", add))
+    dp.add_handler(CommandHandler("help", help))
+    dp.add_handler(CommandHandler("admins", admins))
+    dp.add_handler(CommandHandler("tag", tag_group))
+    dp.add_handler(CommandHandler("make", make_group))
+    dp.add_handler(CommandHandler("add", add))
 
     updater.start_polling()
     updater.idle()
