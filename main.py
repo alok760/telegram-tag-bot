@@ -41,33 +41,33 @@ def make_group(update, context):
         return update.message.reply_text("Group Creation Failed")
 
 def add(update, context):
-    conn = sqlite3.connect('group.db')
-    c = conn.cursor()
-
     try:
+        conn = sqlite3.connect('group.db')
+        c = conn.cursor()
         subgroup_name = update.message.text.split()[1]
-    except:
-        return update.message.reply_text("Also send a group name!")
+        frm = update.message.reply_to_message.to_dict()
 
-    frm = update.message.reply_to_message.to_dict()
+        user_id = frm['from']['id']
+        name = frm['from']['first_name']
 
-    user_id = frm['from']['id']
-    name = frm['from']['first_name']
-
-    query = f"""select group_name from groups where group_name = "{subgroup_name}";"""
-    cursor = c.execute(query)
-    result = cursor.fetchall()
-    if len(result) > 0:
-        query = f"""insert into members values('{subgroup_name}','{user_id}','{name}')"""
+        query = f"""select group_name from groups where group_name = "{subgroup_name}";"""
         cursor = c.execute(query)
-        update.message.reply_text(f"successfully added {name} to the group {subgroup_name}")
+        result = cursor.fetchall()
+        if len(result) > 0:
+            query = f"""insert into members values('{subgroup_name}','{user_id}','{name}')"""
+            cursor = c.execute(query)
+            update.message.reply_text(f"successfully added {name} to the group {subgroup_name}")
 
-    else:
-        update.message.reply_text("Group name not found!")
+        else:
+            update.message.reply_text("Group name not found!")
+            conn.close()
+        conn.commit()
         conn.close()
+    except:
+        return update.message.reply_text("failed to add, use /help")
 
-    conn.commit()
-    conn.close()
+
+
 
 def tag(id, group_name=""):
     #print("in tag")
